@@ -76,6 +76,7 @@ contract MarsAutoFarmGovernance{
     uint256 constant public LOCKUP_FOR_PROPOSAL = 1000*1e18;//GMARSDAO
     uint256 constant public LOCKUP_FOR_SPECIAL_PROPOSAL = 100000*1e18;//GMARSDAO
     uint256 constant public MIN_LOCKUP_FOR_VOTING = 100*1e18;
+    uint256 constant public MAX_LOCKUP_FOR_VOTING = 30000*1e18;
 
     uint256 constant public QUORUM_VOTES =100_000*1e18;
     uint256 constant public EXECUTION_WAITING_PERIOD = 5 days;
@@ -213,7 +214,8 @@ contract MarsAutoFarmGovernance{
         require(state(proposalId) == ProposalState.Active, "voting is closed");
         Proposal storage proposal = proposals[proposalId];
         require(userLockupAmount[proposalId][msg.sender] == 0, "already voted");
-        require(votes>=MIN_LOCKUP_FOR_VOTING, "votes is too small");
+        require(votes>=MIN_LOCKUP_FOR_VOTING, "votes is too little");
+        require(votes<=MAX_LOCKUP_FOR_VOTING, "votes is too much");
         governanceToken.safeTransferFrom(
             address(msg.sender),
             address(this),
