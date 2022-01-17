@@ -27,7 +27,7 @@ contract MarsAutoFarm is Ownable, ReentrancyGuard {
     }
 
     struct PoolInfo {
-        IERC20 want; // Address of the want token.
+        address want; // Address of the want token.
         uint256 accPerShare; // Accumulated per share, times 1e12. See below.
         address strat; // Strategy address that will auto compound want tokens 
         uint256 lastEarnBlock;
@@ -69,7 +69,7 @@ contract MarsAutoFarm is Ownable, ReentrancyGuard {
         
         poolInfo.push(
             PoolInfo({
-                want: IERC20(_wantAddress),
+                want: _wantAddress,
                 accPerShare: 0,
                 strat: _stratAddress,
                 lastEarnBlock: block.number
@@ -130,7 +130,7 @@ contract MarsAutoFarm is Ownable, ReentrancyGuard {
             }
         }
         if (_wantAmt > 0) {
-            require(pool.want.allowance(msg.sender, pool.strat) >=_wantAmt,
+            require(IERC20(pool.want).allowance(msg.sender, pool.strat) >=_wantAmt,
             "Increase the allowance first,call the approve method for strategy contract"
             );
             

@@ -7,19 +7,14 @@ import "./lib/IPancakeRouter.sol";
 import "./lib/IPancakeswapFarm.sol";
 import "./lib/IPancakePair.sol";
 import "./lib/IPancakeFactory.sol";
-import "./lib/ERC20.sol";
 import "./lib/IERC20.sol";
 import "./lib/SafeERC20.sol";
-import "./lib/Address.sol";
-import "./lib/Context.sol";
 import "./lib/Pausable.sol";
 import "./lib/ReentrancyGuard.sol";
 import "./lib/SafeMath.sol";
-import "./lib/EnumerableSet.sol";
 import "./lib/IMarsAutoFarm.sol";
-import "./lib/IERC20Metadata.sol";
 import "./lib/IStrategy.sol";
-//import "./lib/console.sol";
+
 pragma experimental ABIEncoderV2;
 
 
@@ -514,6 +509,8 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         address _to
     ) public onlyAdminAddress{
         require(_token != earnedAddress, "!safe");
+        require(_token != token0Address, "!safe");
+        require(_token != token1Address, "!safe");
         require(_token != wantAddress, "!safe");
         require(_token != marsTokenAddress, "!safe");
         IERC20(_token).safeTransfer(_to, _amount);
@@ -523,15 +520,13 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         uint256 _amountIn,
         uint256 _amountOut,
         address[] memory _path,
-        address router
+        address routerAddress
     ) internal {
 
         if(_amountIn>0){
-            //uint256[] memory amounts = IPancakeRouter02(router).getAmountsOut(_amountIn,_path);
-            //uint256 amountOut = amounts[amounts.length.sub(1)].mul(swapSlippageBP).div(1000);
             uint256 amountOut = _amountOut.mul(swapSlippageBP).div(1000);
 
-            IPancakeRouter02(router)
+            IPancakeRouter02(routerAddress)
                 .swapExactTokensForTokensSupportingFeeOnTransferTokens(
                 _amountIn,
                 amountOut,

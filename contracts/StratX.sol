@@ -7,19 +7,14 @@ import "./lib/IPancakeRouter.sol";
 import "./lib/IPancakeswapFarm.sol";
 import "./lib/IPancakePair.sol";
 import "./lib/IPancakeFactory.sol";
-import "./lib/ERC20.sol";
 import "./lib/IERC20.sol";
 import "./lib/SafeERC20.sol";
-import "./lib/Address.sol";
-import "./lib/Context.sol";
 import "./lib/Pausable.sol";
 import "./lib/ReentrancyGuard.sol";
 import "./lib/SafeMath.sol";
-import "./lib/EnumerableSet.sol";
 import "./lib/IMarsAutoFarm.sol";
-import "./lib/IERC20Metadata.sol";
 import "./lib/IStrategy.sol";
-//import "./lib/console.sol";
+
 pragma experimental ABIEncoderV2;
 
 
@@ -500,6 +495,8 @@ contract StratX is Ownable, ReentrancyGuard, Pausable {
         address _to
     ) public onlyAdminAddress{
         require(_token != earnedAddress, "!safe");
+        require(_token != token0Address, "!safe");
+        require(_token != token1Address, "!safe");
         require(_token != wantAddress, "!safe");
         require(_token != marsTokenAddress, "!safe");
         IERC20(_token).safeTransfer(_to, _amount);

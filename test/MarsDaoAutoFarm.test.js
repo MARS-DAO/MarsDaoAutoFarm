@@ -6,6 +6,9 @@ const StratX= artifacts.require('StratX');
 const BStratX= artifacts.require('BStratX');
 const ForceSend = artifacts.require('ForceSend');
 const IERC20= artifacts.require('IERC20');
+const MockERC20 = artifacts.require('MockERC20');
+const GovernanceMarsDAO = artifacts.require('GovernanceMarsDAO');
+const MarsAutoFarmGovernance=artifacts.require('MarsAutoFarmGovernance');
 
 //const { DONOR_ADDRESS,B_DONOR_ADDRESS} = process.env;
 const DONOR_ADDRESS='0x73feaa1eE314F8c655E354234017bE2193C9E24E';
@@ -25,6 +28,7 @@ contract('MarsAutoFarm', ([alice, bob, carol, scot,developer]) => {
     before(async () => {
         this.mars=await IERC20.at(MARS_ADDRESS);
         this.marsAutoFarm = await MarsAutoFarm.new(MARS_ADDRESS, { from: alice });
+        
         this.StratX = await StratX.new(alice,this.marsAutoFarm.address,MARS_ADDRESS,developer,developer, { from: alice });
         this.BStratX = await BStratX.new(alice,this.marsAutoFarm.address,MARS_ADDRESS,developer,developer, { from: alice });
 
@@ -61,23 +65,63 @@ contract('MarsAutoFarm', ([alice, bob, carol, scot,developer]) => {
 
     });
 
-    it('add pools & setGov & setRouter', async () => {
+    it('deploy governance', async () => {
+        this.newMars = await MockERC20.new('newMars', 'newMars', web3.utils.toWei("10000000", "ether"), { from: alice });
+        this.gmarsToken= await GovernanceMarsDAO.new(this.newMars.address, { from: alice });
+        await this.newMars.approve(this.gmarsToken.address, web3.utils.toWei("1000000", "ether"), { from: alice });
+        await this.gmarsToken.mint(web3.utils.toWei("1000000", "ether"), { from: alice });
+        await this.gmarsToken.transfer(bob,web3.utils.toWei("200000", "ether"),{ from: alice });
+        await this.gmarsToken.transfer(carol,web3.utils.toWei("200000", "ether"),{ from: alice });
+        await this.gmarsToken.transfer(scot,web3.utils.toWei("200000", "ether"),{ from: alice });
+        this.governance = await MarsAutoFarmGovernance.new(this.marsAutoFarm.address,this.newMars.address,this.gmarsToken.address,{ from: alice });
+    });
+
+
+    it('add pools & setGov', async () => {
         await this.marsAutoFarm.add(this.StratX.address,LP,LPpid,{ from: alice });
         await this.marsAutoFarm.add(this.BStratX.address,BLP,BLPpid,{ from: alice });
-        await this.StratX.setGov(alice,{ from: alice });
-        await this.BStratX.setGov(alice,{ from: alice });
-        /*
-        await this.StratX.setRouter0([
+        await this.StratX.setGov(this.governance.address,{ from: alice });
+        await this.BStratX.setGov(this.governance.address,{ from: alice });
+    });
+
+    it('governance: create proposal', async () => {
+        var calldata=web3.eth.abi.encodeParameters(['address[][]'], [[
             [
-                "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
-                "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
-                "0x20de22029ab63cf9a7cf5feb2b737ca1ee4c82a6"
+            "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+            "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "0x20de22029ab63cf9a7cf5feb2b737ca1ee4c82a6"
             ],
             [
-                "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
-                "0x20de22029ab63cf9a7cf5feb2b737ca1ee4c82a6"
+            "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+            "0x20de22029ab63cf9a7cf5feb2b737ca1ee4c82a6"
             ]
-        ],{ from: alice });*/
+        ]]);
+        await this.newMars.approve(this.governance.address, web3.utils.toWei("1000", "ether"), { from: alice });
+        await this.gmarsToken.approve(this.governance.address, web3.utils.toWei("1000000", "ether"), { from: alice });
+        await this.governance.propose([0,1],6,calldata,{ from: alice });
+        //console.log(web3.eth.abi.decodeParameters(['address[][]'],(await this.governance.proposals(0)).calldatas));
+        
+        calldata=web3.eth.abi.encodeParameters(['uint256'],[5000]);
+        await this.governance.propose([0,1],1,calldata,{ from: alice });
+        //pause()
+        await this.governance.propose([0,1],4,0x00,{ from: alice });
+
+        //console.log(await this.governance.getActions(2));
+    });
+
+    it('governance: voting', async () => {
+        await this.gmarsToken.approve(this.governance.address, web3.utils.toWei("200", "ether"), { from: bob });
+        await this.gmarsToken.approve(this.governance.address, web3.utils.toWei("200", "ether"), { from: carol });
+        await this.gmarsToken.approve(this.governance.address, web3.utils.toWei("200", "ether"), { from: scot });
+
+        await this.governance.castVote(0,web3.utils.toWei("100", "ether"),false,{ from: bob });
+        await this.governance.castVote(0,web3.utils.toWei("100", "ether"),false,{ from: carol });
+        await this.governance.castVote(0,web3.utils.toWei("100", "ether"),false,{ from: scot });
+
+        await this.governance.castVote(1,web3.utils.toWei("100", "ether"),true,{ from: bob });
+        await this.governance.castVote(1,web3.utils.toWei("100", "ether"),true,{ from: carol });
+        await this.governance.castVote(1,web3.utils.toWei("100", "ether"),true,{ from: scot });
+      
     });
 
     it('deposit & harvest', async () => {
