@@ -106,7 +106,7 @@ contract MarsAutoFarm is Ownable, ReentrancyGuard {
 
     function getStratThatNeedsEarnings() external view returns(address,uint256){
         uint256 _i=0;
-        for(uint256 i;i<poolInfo.length;i++){
+        for(uint256 i=1;i<poolInfo.length;i++){
             if(poolInfo[i].lastEarnBlock<poolInfo[_i].lastEarnBlock){
                 _i=i;
             }

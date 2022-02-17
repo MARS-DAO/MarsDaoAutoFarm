@@ -178,7 +178,7 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
 
     // Receives new deposits from user
     function deposit(address _userAddress, uint256 _wantAmt)
-        public
+        external
         onlyOwner
         whenNotPaused
         returns (uint256)
@@ -203,7 +203,7 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         return sharesAdded;
     }
 
-    function farm() public nonReentrant {
+    function farm() external nonReentrant {
         _farm();
     }
 
@@ -222,7 +222,7 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
     }
 
     function withdraw(address _userAddress, uint256 _wantAmt, bool isEmergency)
-        public
+        external
         onlyOwner
         nonReentrant
         returns (uint256)
@@ -260,7 +260,7 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         return IMarsAutoFarm(marsAutoFarmAddress).poolLastEarnBlock(marsPid);
     }
 
-    function earn() public {
+    function earn() external {
         if(!paused()){
             _earn(false);
         }else{
@@ -290,10 +290,10 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
             }
         }
 
-        // Converts farm tokens into want tokens
+        
+        IMarsAutoFarm(marsAutoFarmAddress).updateLastEarnBlock(marsPid);
         
         if (isCAKEStaking) {
-            IMarsAutoFarm(marsAutoFarmAddress).updateLastEarnBlock(marsPid);
             _farm();
             return;
         }
@@ -304,9 +304,10 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         earnedAmt = buyBack(earnedAmt);
 
         if(earnedAmt<2){
-            IMarsAutoFarm(marsAutoFarmAddress).updateLastEarnBlock(marsPid);
             return;
         }
+
+        // Converts farm tokens into want tokens
 
         IERC20(earnedAddress).safeIncreaseAllowance(
             biswapRouterAddress,
@@ -350,8 +351,6 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
                 block.timestamp.add(600)
             );
         }
-
-        IMarsAutoFarm(marsAutoFarmAddress).updateLastEarnBlock(marsPid);
 
         _farm();
     }
@@ -410,7 +409,7 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         return _earnedAmt;
     }
 
-    function convertDustToEarned() public whenNotPaused {
+    function convertDustToEarned() external whenNotPaused {
 
         require(!isCAKEStaking, "isCAKEStaking");
 
@@ -441,7 +440,7 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         }
     }
 
-    function pause() public onlyAdminAddress {
+    function pause() external onlyAdminAddress {
         _pause();
     }
 
@@ -449,46 +448,46 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         _unpause();
     }
 
-    function setRouter0(address[][] memory _router0) public onlyAdminAddress {
+    function setRouter0(address[][] memory _router0) external onlyAdminAddress {
         for(uint256 i=0;i<_router0.length;i++){
             require(_router0[i][0]==earnedAddress);
             require(_router0[i][_router0[i].length.sub(1)]==token0Address);
         }
-        delete router0;
+
         router0=_router0;
     }
 
-    function setRouter1(address[][] memory _router1) public onlyAdminAddress {
+    function setRouter1(address[][] memory _router1) external onlyAdminAddress {
         for(uint256 i=0;i<_router1.length;i++){
             require(_router1[i][0]==earnedAddress);
             require(_router1[i][_router1[i].length.sub(1)]==token1Address);
         }
-        delete router1;
+
         router1=_router1;
     }
 
-    function setRouter2(address[][] memory _router2) public onlyAdminAddress {
+    function setRouter2(address[][] memory _router2) external onlyAdminAddress {
         for(uint256 i=0;i<_router2.length;i++){
             require(_router2[i][0]==earnedAddress);
             require(_router2[i][_router2[i].length.sub(1)]==marsTokenAddress);
         }
-        delete router2;
+
         router2=_router2;
     }
 
-    function setBurnRate(uint256 _burnRate) public onlyAdminAddress{
+    function setBurnRate(uint256 _burnRate) external onlyAdminAddress{
         require(burnRate <= burnRateUL, "too high");
         require(burnRate >= burnRateLL, "too low");
         burnRate = _burnRate;
     }
 
-    function setbuyBackRate(uint256 _buyBackRate) public onlyAdminAddress{
+    function setbuyBackRate(uint256 _buyBackRate) external onlyAdminAddress{
         require(buyBackRate <= buyBackRateUL, "too high");
         require(buyBackRate >= buyBackRateLL, "too low");
         buyBackRate = _buyBackRate;
     }
 
-    function setGov(address _adminAddress) public onlyAdminAddress{
+    function setGov(address _adminAddress) external onlyAdminAddress{
         require(_adminAddress!=address(0),"zero address!");
         //first call
         if(buyBackRate == 10000){

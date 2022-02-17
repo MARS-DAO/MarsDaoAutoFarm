@@ -290,12 +290,9 @@ contract MarsAutoFarmGovernance{
                 }
 
                 return ProposalState.Cancelled;
-
-            }else{
-                if(proposal.readyToExecutionTime>block.timestamp){
-                    return ProposalState.Failed;
-                } 
-            } 
+            }
+            
+            return ProposalState.Failed;
         }
         
         return ProposalState.Unknown;
