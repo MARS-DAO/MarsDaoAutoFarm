@@ -51,8 +51,7 @@ contract MarsAutoFarmGovernance{
         unpause,
         setRouter0,
         setRouter1,
-        setRouter2,
-        setGov
+        setRouter2
     }
 
     string[10] public signatures=[
@@ -64,8 +63,7 @@ contract MarsAutoFarmGovernance{
         "unpause()",
         "setRouter0(address[][])",
         "setRouter1(address[][])",
-        "setRouter2(address[][])",
-        "setGov(address)"
+        "setRouter2(address[][])"
     ];
 
     IMarsAutoFarm immutable public marsAutoFarm;

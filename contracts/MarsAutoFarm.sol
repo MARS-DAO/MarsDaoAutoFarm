@@ -34,11 +34,13 @@ contract MarsAutoFarm is Ownable, ReentrancyGuard {
     }
 
     IERC20 immutable public marsToken;
+    address public govAddress;
 
 
     PoolInfo[] public poolInfo; // Info of each pool.
     mapping(uint256 => mapping(address => UserInfo)) public userInfo; // Info of each user that stakes LP tokens.
-
+    
+    event Launched(address governance);
     event PoolCharged(uint256 indexed pid,uint256 amount);
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
@@ -54,6 +56,16 @@ contract MarsAutoFarm is Ownable, ReentrancyGuard {
 
     function poolLength() external view returns (uint256) {
         return poolInfo.length;
+    }
+
+    function getGovernance() external view returns (address) {
+        return govAddress;
+    }
+
+    function setGovernance(address _govAddress) external onlyOwner {
+        require(govAddress==address(0),"governance address already set");
+        govAddress=_govAddress;
+        emit Launched(govAddress);
     }
 
     

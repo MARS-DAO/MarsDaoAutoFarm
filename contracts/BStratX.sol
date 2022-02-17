@@ -39,9 +39,9 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
     IPancakeFactory public constant biswapFactory=IPancakeFactory(0x858E3312ed3A876947EA49d572A7C42DE08af7EE);
     address public constant wbnbAddress = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address public constant busdAddress=0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
-    address public marsAutoFarmAddress;
+    address immutable public marsAutoFarmAddress;
     address immutable public marsTokenAddress;
-    address public adminAddress; 
+    address public governanceAddress; 
 
 
     uint256 public wantLockedTotal = 0;
@@ -53,12 +53,12 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
     
     uint256 public constant MaxBP = 10000; // 100%
 
-    uint256 public buyBackRate = 10000;
+    uint256 public buyBackRate = 4845;//48,45%
     uint256 public constant buyBackRateUL = 7000;//70%
     uint256 public constant buyBackRateLL = 3000;//30%
     uint256 public swapSlippageBP=900;
 
-    uint256 public burnRate = 10000;
+    uint256 public burnRate = 2000;//20%
     uint256 public constant burnRateUL = 4500;//45%
     uint256 public constant burnRateLL = 1000;//10%
     address public constant burnAddress =
@@ -72,24 +72,25 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
     address[][] public router1;
     address[][] public router2;
 
-    modifier onlyAdminAddress() {
-        require(msg.sender == adminAddress, "Not authorised");
+    modifier onlyGovernanceAddress() {
+        require(msg.sender == governanceAddress, "Not authorised");
         _;
     }
 
     constructor(
-        address _adminAddress,
         address _marsAutoFarmAddress,
         address _marsTokenAddress,
         address _dev25,
         address _dev75
     ) public {
-        adminAddress = _adminAddress;
+        governanceAddress = IMarsAutoFarm(_marsAutoFarmAddress).getGovernance();
+        require(governanceAddress!=address(0),"governanceAddress is 0");
         marsAutoFarmAddress = _marsAutoFarmAddress;
         marsTokenAddress = _marsTokenAddress;
         dev25=_dev25;
         dev75=_dev75;
-        transferOwnership(marsAutoFarmAddress);
+
+        transferOwnership(_marsAutoFarmAddress);
     }
 
     
@@ -440,15 +441,15 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         }
     }
 
-    function pause() external onlyAdminAddress {
+    function pause() external onlyGovernanceAddress {
         _pause();
     }
 
-    function unpause() external onlyAdminAddress{
+    function unpause() external onlyGovernanceAddress{
         _unpause();
     }
 
-    function setRouter0(address[][] memory _router0) external onlyAdminAddress {
+    function setRouter0(address[][] memory _router0) external onlyGovernanceAddress {
         for(uint256 i=0;i<_router0.length;i++){
             require(_router0[i][0]==earnedAddress);
             require(_router0[i][_router0[i].length.sub(1)]==token0Address);
@@ -457,7 +458,7 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         router0=_router0;
     }
 
-    function setRouter1(address[][] memory _router1) external onlyAdminAddress {
+    function setRouter1(address[][] memory _router1) external onlyGovernanceAddress {
         for(uint256 i=0;i<_router1.length;i++){
             require(_router1[i][0]==earnedAddress);
             require(_router1[i][_router1[i].length.sub(1)]==token1Address);
@@ -466,7 +467,7 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         router1=_router1;
     }
 
-    function setRouter2(address[][] memory _router2) external onlyAdminAddress {
+    function setRouter2(address[][] memory _router2) external onlyGovernanceAddress {
         for(uint256 i=0;i<_router2.length;i++){
             require(_router2[i][0]==earnedAddress);
             require(_router2[i][_router2[i].length.sub(1)]==marsTokenAddress);
@@ -475,29 +476,19 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         router2=_router2;
     }
 
-    function setBurnRate(uint256 _burnRate) external onlyAdminAddress{
+    function setBurnRate(uint256 _burnRate) external onlyGovernanceAddress{
         require(burnRate <= burnRateUL, "too high");
         require(burnRate >= burnRateLL, "too low");
         burnRate = _burnRate;
     }
 
-    function setbuyBackRate(uint256 _buyBackRate) external onlyAdminAddress{
+    function setbuyBackRate(uint256 _buyBackRate) external onlyGovernanceAddress{
         require(buyBackRate <= buyBackRateUL, "too high");
         require(buyBackRate >= buyBackRateLL, "too low");
         buyBackRate = _buyBackRate;
     }
 
-    function setGov(address _adminAddress) external onlyAdminAddress{
-        require(_adminAddress!=address(0),"zero address!");
-        //first call
-        if(buyBackRate == 10000){
-            buyBackRate=4845;//48,45%
-            burnRate = 2000;//20%
-        }
-        adminAddress = _adminAddress;
-    }
-
-    function setSwapSlippageBP(uint256 _swapSlippageBP) external onlyAdminAddress{
+    function setSwapSlippageBP(uint256 _swapSlippageBP) external onlyGovernanceAddress{
         require(_swapSlippageBP<1000,"should be between 0-1000");
         swapSlippageBP=_swapSlippageBP;
     }
@@ -506,7 +497,7 @@ contract BStratX is Ownable, ReentrancyGuard, Pausable {
         address _token,
         uint256 _amount,
         address _to
-    ) public onlyAdminAddress{
+    ) public onlyGovernanceAddress{
         require(_token != earnedAddress, "!safe");
         require(_token != token0Address, "!safe");
         require(_token != token1Address, "!safe");

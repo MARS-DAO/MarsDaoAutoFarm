@@ -28,9 +28,6 @@ contract('MarsAutoFarm', ([alice, bob, carol, scot,developer]) => {
     before(async () => {
         this.mars=await IERC20.at(MARS_ADDRESS);
         this.marsAutoFarm = await MarsAutoFarm.new(MARS_ADDRESS, { from: alice });
-        
-        this.StratX = await StratX.new(alice,this.marsAutoFarm.address,MARS_ADDRESS,developer,developer, { from: alice });
-        this.BStratX = await BStratX.new(alice,this.marsAutoFarm.address,MARS_ADDRESS,developer,developer, { from: alice });
 
         const forceSend = await ForceSend.new();
         await forceSend.go(DONOR_ADDRESS, { value: web3.utils.toWei("1", "ether") });
@@ -43,9 +40,7 @@ contract('MarsAutoFarm', ([alice, bob, carol, scot,developer]) => {
         await this.lp.transfer(bob,web3.utils.toWei("1000", "ether"),{ from: DONOR_ADDRESS });
         await this.lp.transfer(carol,web3.utils.toWei("1000", "ether"),{ from: DONOR_ADDRESS });
         await this.lp.transfer(scot,web3.utils.toWei("1000", "ether"),{ from: DONOR_ADDRESS });
-        await this.lp.approve(this.StratX.address, web3.utils.toWei("1000", "ether"), { from: bob });
-        await this.lp.approve(this.StratX.address, web3.utils.toWei("1000", "ether"), { from: carol });
-        await this.lp.approve(this.StratX.address, web3.utils.toWei("1000", "ether"), { from: scot });
+        
 
         const BforceSend = await ForceSend.new();
         await BforceSend.go(B_DONOR_ADDRESS, { value: web3.utils.toWei("1", "ether") });
@@ -59,9 +54,7 @@ contract('MarsAutoFarm', ([alice, bob, carol, scot,developer]) => {
         await this.blp.transfer(bob,web3.utils.toWei("1000", "ether"),{ from: B_DONOR_ADDRESS });
         await this.blp.transfer(carol,web3.utils.toWei("1000", "ether"),{ from: B_DONOR_ADDRESS });
         await this.blp.transfer(scot,web3.utils.toWei("1000", "ether"),{ from: B_DONOR_ADDRESS });       
-        await this.blp.approve(this.BStratX.address, web3.utils.toWei("1000", "ether"), { from: bob });
-        await this.blp.approve(this.BStratX.address, web3.utils.toWei("1000", "ether"), { from: carol });
-        await this.blp.approve(this.BStratX.address, web3.utils.toWei("1000", "ether"), { from: scot });
+        
 
     });
 
@@ -74,14 +67,24 @@ contract('MarsAutoFarm', ([alice, bob, carol, scot,developer]) => {
         await this.gmarsToken.transfer(carol,web3.utils.toWei("200000", "ether"),{ from: alice });
         await this.gmarsToken.transfer(scot,web3.utils.toWei("200000", "ether"),{ from: alice });
         this.governance = await MarsAutoFarmGovernance.new(this.marsAutoFarm.address,this.newMars.address,this.gmarsToken.address,{ from: alice });
+        this.marsAutoFarm.setGovernance(this.governance.address,{ from: alice });
+    });
+
+    it('deploy StratX & BStratX', async () => {
+        this.StratX = await StratX.new(this.marsAutoFarm.address,MARS_ADDRESS,developer,developer, { from: alice });
+        this.BStratX = await BStratX.new(this.marsAutoFarm.address,MARS_ADDRESS,developer,developer, { from: alice });
+        await this.lp.approve(this.StratX.address, web3.utils.toWei("1000", "ether"), { from: bob });
+        await this.lp.approve(this.StratX.address, web3.utils.toWei("1000", "ether"), { from: carol });
+        await this.lp.approve(this.StratX.address, web3.utils.toWei("1000", "ether"), { from: scot });
+        await this.blp.approve(this.BStratX.address, web3.utils.toWei("1000", "ether"), { from: bob });
+        await this.blp.approve(this.BStratX.address, web3.utils.toWei("1000", "ether"), { from: carol });
+        await this.blp.approve(this.BStratX.address, web3.utils.toWei("1000", "ether"), { from: scot });
     });
 
 
-    it('add pools & setGov', async () => {
+    it('add pools', async () => {
         await this.marsAutoFarm.add(this.StratX.address,LP,LPpid,{ from: alice });
         await this.marsAutoFarm.add(this.BStratX.address,BLP,BLPpid,{ from: alice });
-        await this.StratX.setGov(this.governance.address,{ from: alice });
-        await this.BStratX.setGov(this.governance.address,{ from: alice });
     });
 
     it('governance: create proposal', async () => {
