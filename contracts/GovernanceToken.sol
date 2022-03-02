@@ -14,7 +14,7 @@ contract GovernanceMarsDAO is ERC20 {
     address public constant burnAddress =
         0x000000000000000000000000000000000000dEaD;
 
-    constructor(address _newMarsDAOToken) public ERC20("GMARSDAO", "GMARSDAO")  {
+    constructor(address _newMarsDAOToken) public ERC20("Governance MarsDAO", "GMDAO")  {
         newMarsDAOToken=IERC20(_newMarsDAOToken);
     }
 

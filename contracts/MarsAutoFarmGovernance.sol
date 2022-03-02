@@ -5,7 +5,6 @@ pragma solidity 0.6.12;
 import "./lib/IERC20.sol";
 import "./lib/IMarsAutoFarm.sol";
 import "./lib/SafeERC20.sol";
-//import "./lib/console.sol";
 
 pragma experimental ABIEncoderV2;
 
