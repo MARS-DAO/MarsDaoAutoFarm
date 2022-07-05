@@ -49,6 +49,7 @@ contract MarsAutoFarm is Ownable, ReentrancyGuard {
         uint256 indexed pid,
         uint256 amount
     );
+    event Paused(uint256 indexed pid, bool status);
 
     constructor(address _marsTokenAddress) public {
         marsToken=IERC20(_marsTokenAddress);
@@ -116,14 +117,14 @@ contract MarsAutoFarm is Ownable, ReentrancyGuard {
         return poolInfo[_pid].lastEarnBlock;
     }
 
-    function getStratThatNeedsEarnings() external view returns(address,uint256){
-        uint256 _i=0;
-        for(uint256 i=1;i<poolInfo.length;i++){
-            if(poolInfo[i].lastEarnBlock<poolInfo[_i].lastEarnBlock){
-                _i=i;
+    function getStratThatNeedsEarnings() external view returns(address, uint256) {
+        uint256 _i = 0;
+        for (uint256 i = 1; i < poolInfo.length; i++) {
+            if (poolInfo[i].lastEarnBlock < poolInfo[_i].lastEarnBlock && !IStrategy(poolInfo[i].strat).paused()) {
+                _i = i;
             }
         }
-        return (poolInfo[_i].strat,poolInfo[_i].lastEarnBlock);
+        return (poolInfo[_i].strat, poolInfo[_i].lastEarnBlock);
     }
 
     function deposit(uint256 _pid, uint256 _wantAmt) public nonReentrant {
@@ -247,6 +248,16 @@ contract MarsAutoFarm is Ownable, ReentrancyGuard {
             return 0;
         }
         return user.shares.mul(wantLockedTotal).div(sharesTotal);
+    }
+
+    function pause(uint256 _pid) external onlyOwner {
+        IStrategy(poolInfo[_pid].strat).pause();
+        emit Paused(_pid, true);
+    }
+
+    function unpause(uint256 _pid) external onlyOwner {
+        IStrategy(poolInfo[_pid].strat).unpause();
+        emit Paused(_pid, false);
     }
 
 }
