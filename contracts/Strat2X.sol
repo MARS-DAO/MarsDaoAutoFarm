@@ -17,7 +17,6 @@ import "./lib/IStrategy.sol";
 
 pragma experimental ABIEncoderV2;
 
-
 contract Strat2X is Ownable, ReentrancyGuard, Pausable {
     // Maximises yields in pancakeswap
 
@@ -25,16 +24,22 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     uint256 public pid; // pid of pool in farmContractAddress
-    uint256 public marsPid; // id of pool in marsAutoFarmAddress
+    uint256 public marsPid; //// id of pool in marsAutoFarmAddress
     address public wantAddress;
     address public token0Address;
     address public token1Address;
-    address public constant earnedAddress=0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82; // CAKE
-    address public constant farmContractAddress=0xa5f8C5Dbd5F286960b9d90548680aE5ebFf07652; // address of farm, eg, PCS, Thugs etc.
-    address public constant uniRouterAddress=0x10ED43C718714eb63d5aA57B78B54704E256024E; // uniswap, pancakeswap etc.
-    IPancakeFactory public constant uniFactory=IPancakeFactory(0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73);
-    address public constant wbnbAddress = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address public constant busdAddress=0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+    address public constant earnedAddress =
+        0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82; //CAKE
+    address public constant farmContractAddress =
+        0xa5f8C5Dbd5F286960b9d90548680aE5ebFf07652; // address of farm, eg, PCS, Thugs etc.
+    address public constant uniRouterAddress =
+        0x10ED43C718714eb63d5aA57B78B54704E256024E; // uniswap, pancakeswap etc
+    IPancakeFactory public constant uniFactory =
+        IPancakeFactory(0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73);
+    address public constant wbnbAddress =
+        0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address public constant busdAddress =
+        0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
     address immutable public marsAutoFarmAddress;
     address immutable public marsTokenAddress;
     address public governanceAddress;
@@ -42,21 +47,21 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
     uint256 public wantLockedTotal = 0;
     uint256 public sharesTotal = 0;
 
-    address immutable public dev25;
-    address immutable public dev75;
-
+    address public immutable dev25;
+    address public immutable dev75;
 
     uint256 public constant MaxBP = 10000; // 100%
 
-    uint256 public buyBackRate = 4845; // 48,45%
-    uint256 public constant buyBackRateUL = 7000; // 70%
-    uint256 public constant buyBackRateLL = 3000; // 30%
-    uint256 public swapSlippageBP=900;
+    uint256 public buyBackRate = 4845; //48,45%
+    uint256 public constant buyBackRateUL = 7000; //70%
+    uint256 public constant buyBackRateLL = 3000; //30%
+    uint256 public swapSlippageBP = 900;
 
-    uint256 public burnRate = 2000;//20%
-    uint256 public constant burnRateUL = 4500; // 45%
-    uint256 public constant burnRateLL = 1000; // 10%
-    address public constant burnAddress = 0x000000000000000000000000000000000000dEaD;
+    uint256 public burnRate = 2000; //20%
+    uint256 public constant burnRateUL = 4500; //45%
+    uint256 public constant burnRateLL = 1000; //10%
+    address public constant burnAddress =
+        0x000000000000000000000000000000000000dEaD;
 
     address[] public token0ToEarnedPath;
     address[] public token1ToEarnedPath;
@@ -76,34 +81,43 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         address _dev75
     ) public {
         governanceAddress = IMarsAutoFarm(_marsAutoFarmAddress).getGovernance();
-        require(governanceAddress!=address(0),"governanceAddress is 0");
+        require(governanceAddress != address(0), "governanceAddress is 0");
         marsAutoFarmAddress = _marsAutoFarmAddress;
         marsTokenAddress = _marsTokenAddress;
-        dev25=_dev25;
-        dev75=_dev75;
+        dev25 = _dev25;
+        dev75 = _dev75;
 
         transferOwnership(_marsAutoFarmAddress);
     }
 
 
-    function activateStrategy(uint256 poolId, //marsAutoFarm
-                            address _wantAddress,
-                            uint256 _farmPid) external onlyOwner returns (bool) {
+    function activateStrategy(
+        uint256 poolId, //marsAutoFarm
+        address _wantAddress,
+        uint256 _farmPid
+    ) external onlyOwner returns (bool) {
+        require(wantAddress == address(0), "already activated");
+        require(
+            marsTokenAddress != _wantAddress,
+            "marsTokenAddress address cannot be equal to _wantAddress"
+        );
 
-        require(wantAddress==address(0),"already activated");
-        require(marsTokenAddress!=_wantAddress, "marsTokenAddress address cannot be equal to _wantAddress");
-
-        marsPid=poolId;
-        wantAddress=_wantAddress;
+        marsPid = poolId;
+        wantAddress = _wantAddress;
 
         pid = _farmPid;
         router2.push([earnedAddress, busdAddress, marsTokenAddress]);
-        router2.push([earnedAddress, wbnbAddress, busdAddress, marsTokenAddress]);
+        router2.push(
+            [earnedAddress, wbnbAddress, busdAddress, marsTokenAddress]
+        );
 
         token0Address = IPancakePair(_wantAddress).token0();
         token1Address = IPancakePair(_wantAddress).token1();
-        require(uniFactory.getPair(token0Address,token1Address) != address(0), "LP token V1 is not supported");
 
+        require(
+            address(uniFactory) == IPancakePair(_wantAddress).factory(),
+            "LP token V2 only"
+        );
         token0ToEarnedPath = [token0Address, wbnbAddress, earnedAddress];
         token1ToEarnedPath = [token1Address, wbnbAddress, earnedAddress];
 
@@ -111,71 +125,99 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
             router0.push([earnedAddress, token0Address]);
             token0ToEarnedPath = [token0Address, earnedAddress];
         } else {
-            if (uniFactory.getPair(earnedAddress,token0Address) != address(0)) {
+            if (
+                uniFactory.getPair(earnedAddress, token0Address) != address(0)
+            ) {
                 router0.push([earnedAddress, token0Address]);
                 router1.push([earnedAddress, token0Address, token1Address]);
             }
-            router0.push([earnedAddress,wbnbAddress,token0Address]);
+            router0.push([earnedAddress, wbnbAddress, token0Address]);
+            if (
+                token0Address != busdAddress &&
+                uniFactory.getPair(busdAddress, token0Address) != address(0)
+            ) {
+                router0.push([earnedAddress, busdAddress, token0Address]);
+            }
         }
 
         if (token1Address == wbnbAddress) {
             router1.push([earnedAddress, token1Address]);
             token1ToEarnedPath = [token1Address, earnedAddress];
         } else {
-            if(uniFactory.getPair(earnedAddress,token1Address)!=address(0)) {
+            if (
+                uniFactory.getPair(earnedAddress, token1Address) != address(0)
+            ) {
                 router1.push([earnedAddress, token1Address]);
                 router0.push([earnedAddress, token1Address, token0Address]);
             }
-            router1.push([earnedAddress,wbnbAddress,token1Address]);
+            router1.push([earnedAddress, wbnbAddress, token1Address]);
+            if (
+                token1Address != busdAddress &&
+                uniFactory.getPair(busdAddress, token1Address) != address(0)
+            ) {
+                router1.push([earnedAddress, busdAddress, token1Address]);
+            }
         }
 
         return true;
     }
 
-    function _getBestPath(uint256 amountIn,address[][] memory router)
-    internal view returns(address[] memory,uint256) {
-        uint256 amountOut=0;
-        uint256 bestI=0;
+    function _getBestPath(
+        uint256 amountIn,
+        address[][] memory router
+    ) internal view returns (address[] memory, uint256) {
+        uint256 amountOut = 0;
+        uint256 bestI = 0;
         for (uint256 i = 0; i < router.length; i++) {
-            uint256[] memory amounts = IPancakeRouter02(uniRouterAddress).getAmountsOut(amountIn, router[i]);
-            if (amounts[amounts.length.sub(1)] > amountOut) {
-                amountOut=amounts[amounts.length.sub(1)];
-                bestI = i;
+            try
+                IPancakeRouter02(uniRouterAddress).getAmountsOut(
+                    amountIn,
+                    router[i]
+                )
+            returns (uint256[] memory amounts) {
+                if (amounts[amounts.length.sub(1)] > amountOut) {
+                    amountOut = amounts[amounts.length.sub(1)];
+                    bestI = i;
+                }
+            } catch {
+                continue;
             }
         }
-
-        return (router[bestI],amountOut);
+        return (router[bestI], amountOut);
     }
 
-    function getEarnedToBusdPath(uint256 amountIn)
-    public view returns(address[] memory,uint256) {
-        return _getBestPath(amountIn,router2);
+    function getEarnedToBusdPath(
+        uint256 amountIn
+    ) public view returns (address[] memory, uint256) {
+        return _getBestPath(amountIn, router2);
     }
 
-    function getPathForToken0(uint256 amountIn)
-    public view returns(address[] memory,uint256) {
-        return _getBestPath(amountIn,router0);
+    function getPathForToken0(
+        uint256 amountIn
+    ) public view returns (address[] memory, uint256) {
+        return _getBestPath(amountIn, router0);
     }
 
-    function getPathForToken1(uint256 amountIn)
-    public view returns(address[] memory,uint256) {
-        return _getBestPath(amountIn,router1);
+    function getPathForToken1(
+        uint256 amountIn
+    ) public view returns (address[] memory, uint256) {
+        return _getBestPath(amountIn, router1);
     }
 
     // Receives new deposits from user
-    function deposit(address _userAddress, uint256 _wantAmt)
-        external
-        onlyOwner
-        whenNotPaused
-        returns (uint256)
-    {
-        IERC20(wantAddress).safeTransferFrom(_userAddress, address(this), _wantAmt);
+    function deposit(
+        address _userAddress,
+        uint256 _wantAmt
+    ) external onlyOwner whenNotPaused returns (uint256) {
+        IERC20(wantAddress).safeTransferFrom(
+            _userAddress,
+            address(this),
+            _wantAmt
+        );
 
         uint256 sharesAdded = _wantAmt;
-        if (wantLockedTotal > 0 && sharesTotal>0) {
-            sharesAdded = _wantAmt
-                .mul(sharesTotal)
-                .div(wantLockedTotal);
+        if (wantLockedTotal > 0 && sharesTotal > 0) {
+            sharesAdded = _wantAmt.mul(sharesTotal).div(wantLockedTotal);
         }
         sharesTotal = sharesTotal.add(sharesAdded);
 
@@ -193,17 +235,20 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         uint256 wantAmt = IERC20(wantAddress).balanceOf(address(this));
         if (wantAmt > 0) {
             wantLockedTotal = wantLockedTotal.add(wantAmt);
-            IERC20(wantAddress).safeIncreaseAllowance(farmContractAddress, wantAmt);
+            IERC20(wantAddress).safeIncreaseAllowance(
+                farmContractAddress,
+                wantAmt
+            );
+
             IPancakeswapFarm(farmContractAddress).deposit(pid, wantAmt);
         }
     }
 
-    function withdraw(address _userAddress, uint256 _wantAmt, bool isEmergency)
-        external
-        onlyOwner
-        nonReentrant
-        returns (uint256)
-    {
+    function withdraw(
+        address _userAddress,
+        uint256 _wantAmt,
+        bool isEmergency
+    ) external onlyOwner nonReentrant returns (uint256) {
         require(_wantAmt > 0, "_wantAmt <= 0");
 
         IPancakeswapFarm(farmContractAddress).withdraw(pid, _wantAmt);
@@ -225,20 +270,21 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         wantLockedTotal = wantLockedTotal.sub(_wantAmt);
 
         IERC20(wantAddress).safeTransfer(_userAddress, _wantAmt);
-        if (!isEmergency) { _helpToEarn(); }
+        if (!isEmergency) {
+            _helpToEarn();
+        }
         return sharesRemoved;
     }
 
-    function lastEarnBlock() public view returns(uint256) {
+    function lastEarnBlock() public view returns (uint256) {
         return IMarsAutoFarm(marsAutoFarmAddress).poolLastEarnBlock(marsPid);
     }
 
     function earn() external {
-        if (!paused()) {
-            _earn(false);
-        } else {
-            //lastEarnBlock = block.number;
+        if (paused()) {
             IMarsAutoFarm(marsAutoFarmAddress).updateLastEarnBlock(marsPid);
+        } else {
+            _earn(false);
         }
     }
 
@@ -270,9 +316,13 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         }
 
         // Converts farm tokens into want tokens
-        IERC20(earnedAddress).safeIncreaseAllowance(uniRouterAddress, earnedAmt);
 
-        uint256 halfAmount=earnedAmt.div(2);
+        IERC20(earnedAddress).safeIncreaseAllowance(
+            uniRouterAddress,
+            earnedAmt
+        );
+
+        uint256 halfAmount = earnedAmt.div(2);
         address[] memory path;
         uint256 amountOut;
         if (earnedAddress != token0Address) {
@@ -291,8 +341,14 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         uint256 token0Amt = IERC20(token0Address).balanceOf(address(this));
         uint256 token1Amt = IERC20(token1Address).balanceOf(address(this));
         if (token0Amt > 0 && token1Amt > 0) {
-            IERC20(token0Address).safeIncreaseAllowance(uniRouterAddress, token0Amt);
-            IERC20(token1Address).safeIncreaseAllowance(uniRouterAddress, token1Amt);
+            IERC20(token0Address).safeIncreaseAllowance(
+                uniRouterAddress,
+                token0Amt
+            );
+            IERC20(token1Address).safeIncreaseAllowance(
+                uniRouterAddress,
+                token1Amt
+            );
             IPancakeRouter02(uniRouterAddress).addLiquidity(
                 token0Address,
                 token1Address,
@@ -309,7 +365,6 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
     }
 
     function buyBack(uint256 _earnedAmt) internal returns (uint256) {
-
         uint256 buyBackAmt = _earnedAmt.mul(buyBackRate).div(MaxBP);
 
         if (buyBackAmt == 0) {
@@ -321,7 +376,9 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
             buyBackAmt
         );
 
-        (address[] memory path,uint256 amountOut) = getEarnedToBusdPath(buyBackAmt);
+        (address[] memory path, uint256 amountOut) = getEarnedToBusdPath(
+            buyBackAmt
+        );
 
         _swap(buyBackAmt, amountOut, path);
 
@@ -329,21 +386,34 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
     }
 
     function distributeReward() external {
-        uint256 rewardAmount = IERC20(marsTokenAddress).balanceOf(address(this));
+        uint256 rewardAmount = IERC20(marsTokenAddress).balanceOf(
+            address(this)
+        );
+
         //min amount 1e7
         if (rewardAmount > 1e7 && sharesTotal > 0) {
             uint256 burnAmount = rewardAmount.mul(burnRate).div(MaxBP);
             IERC20(marsTokenAddress).safeTransfer(burnAddress, burnAmount);
             rewardAmount = rewardAmount.sub(burnAmount);
-            IERC20(marsTokenAddress).safeIncreaseAllowance(marsAutoFarmAddress, rewardAmount);
-            require(IMarsAutoFarm(marsAutoFarmAddress).chargePool(marsPid, rewardAmount, sharesTotal), "pool charging fail");
+            IERC20(marsTokenAddress).safeIncreaseAllowance(
+                marsAutoFarmAddress,
+                rewardAmount
+            );
+            require(
+                IMarsAutoFarm(marsAutoFarmAddress).chargePool(
+                    marsPid,
+                    rewardAmount,
+                    sharesTotal
+                ),
+                "pool charging fail"
+            );
         }
     }
 
     function distributeFees(uint256 _earnedAmt) internal returns (uint256) {
         if (_earnedAmt > 0) {
-            uint256 fee75 = _earnedAmt.mul(300).div(MaxBP); // 3%
-            uint256 fee25 = _earnedAmt.mul(100).div(MaxBP); // 1%
+            uint256 fee75 = _earnedAmt.mul(300).div(MaxBP); //3%
+            uint256 fee25 = _earnedAmt.mul(100).div(MaxBP); //1%
             IERC20(earnedAddress).safeTransfer(dev75, fee75);
             IERC20(earnedAddress).safeTransfer(dev25, fee25);
             _earnedAmt = _earnedAmt.sub(fee75.add(fee25));
@@ -358,7 +428,10 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         // Converts token0 dust (if any) to earned tokens
         uint256 token0Amt = IERC20(token0Address).balanceOf(address(this));
         if (token0Address != earnedAddress && token0Amt > 0) {
-            IERC20(token0Address).safeIncreaseAllowance(uniRouterAddress, token0Amt);
+            IERC20(token0Address).safeIncreaseAllowance(
+                uniRouterAddress,
+                token0Amt
+            );
 
             // Swap all dust tokens to earned tokens
             _swap(token0Amt, 0, token0ToEarnedPath);
@@ -367,7 +440,10 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         // Converts token1 dust (if any) to earned tokens
         uint256 token1Amt = IERC20(token1Address).balanceOf(address(this));
         if (token1Address != earnedAddress && token1Amt > 0) {
-            IERC20(token1Address).safeIncreaseAllowance(uniRouterAddress, token1Amt);
+            IERC20(token1Address).safeIncreaseAllowance(
+                uniRouterAddress,
+                token1Amt
+            );
             // Swap all dust tokens to earned tokens
             _swap(token1Amt, 0, token1ToEarnedPath);
         }
@@ -381,31 +457,37 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         _unpause();
     }
 
-    function setRouter0(address[][] memory _router0) external onlyGovernanceAddress {
-        for (uint256 i = 0 ; i < _router0.length; i++) {
+    function setRouter0(
+        address[][] memory _router0
+    ) external onlyGovernanceAddress {
+        for (uint256 i = 0; i < _router0.length; i++) {
             require(_router0[i][0] == earnedAddress);
             require(_router0[i][_router0[i].length.sub(1)] == token0Address);
         }
 
-        router0=_router0;
+        router0 = _router0;
     }
 
-    function setRouter1(address[][] memory _router1) external onlyGovernanceAddress {
+    function setRouter1(
+        address[][] memory _router1
+    ) external onlyGovernanceAddress {
         for (uint256 i = 0; i < _router1.length; i++) {
             require(_router1[i][0] == earnedAddress);
             require(_router1[i][_router1[i].length.sub(1)] == token1Address);
         }
 
-        router1=_router1;
+        router1 = _router1;
     }
 
-    function setRouter2(address[][] memory _router2) external onlyGovernanceAddress {
-        for (uint256 i = 0; i < _router2.length; i++){
+    function setRouter2(
+        address[][] memory _router2
+    ) external onlyGovernanceAddress {
+        for (uint256 i = 0; i < _router2.length; i++) {
             require(_router2[i][0] == earnedAddress);
             require(_router2[i][_router2[i].length.sub(1)] == marsTokenAddress);
         }
 
-        router2=_router2;
+        router2 = _router2;
     }
 
     function setBurnRate(uint256 _burnRate) external onlyGovernanceAddress {
@@ -414,15 +496,19 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         burnRate = _burnRate;
     }
 
-    function setbuyBackRate(uint256 _buyBackRate) external onlyGovernanceAddress {
+    function setbuyBackRate(
+        uint256 _buyBackRate
+    ) external onlyGovernanceAddress {
         require(buyBackRate <= buyBackRateUL, "too high");
         require(buyBackRate >= buyBackRateLL, "too low");
         buyBackRate = _buyBackRate;
     }
 
-    function setSwapSlippageBP(uint256 _swapSlippageBP) external onlyGovernanceAddress {
+    function setSwapSlippageBP(
+        uint256 _swapSlippageBP
+    ) external onlyGovernanceAddress {
         require(_swapSlippageBP < 1000, "should be between 0-1000");
-        swapSlippageBP=_swapSlippageBP;
+        swapSlippageBP = _swapSlippageBP;
     }
 
     function inCaseTokensGetStuck(
