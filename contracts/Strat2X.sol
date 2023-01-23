@@ -4,7 +4,7 @@ pragma solidity 0.6.12;
 
 import "./lib/Ownable.sol";
 import "./lib/IPancakeRouter.sol";
-import "./lib/IPancakeswapFarm_v2.sol";
+import "./lib/IPancakeswapFarmV2.sol";
 import "./lib/IPancakePair.sol";
 import "./lib/IPancakeFactory.sol";
 import "./lib/IERC20.sol";
@@ -23,6 +23,7 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
+    bool public autoCompound = true;
     uint256 public pid; // pid of pool in farmContractAddress
     uint256 public marsPid; //// id of pool in marsAutoFarmAddress
     address public wantAddress;
@@ -40,9 +41,13 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address public constant busdAddress =
         0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
-    address immutable public marsAutoFarmAddress;
-    address immutable public marsTokenAddress;
+    address public constant usdtAddress =
+        0x55d398326f99059fF775485246999027B3197955;
+    address public immutable marsAutoFarmAddress;
+    address public immutable marsTokenAddress;
     address public governanceAddress;
+    uint256 public constant MINIMUM_CAKE_AMOUNT = 1e12;
+    uint256 public constant MINIMUM_MARS_AMOUNT = 1e6;
 
     uint256 public wantLockedTotal = 0;
     uint256 public sharesTotal = 0;
@@ -89,7 +94,6 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
 
         transferOwnership(_marsAutoFarmAddress);
     }
-
 
     function activateStrategy(
         uint256 poolId, //marsAutoFarm
@@ -138,6 +142,12 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
             ) {
                 router0.push([earnedAddress, busdAddress, token0Address]);
             }
+            if (
+                token0Address != usdtAddress &&
+                uniFactory.getPair(usdtAddress, token0Address) != address(0)
+            ) {
+                router0.push([earnedAddress, usdtAddress, token0Address]);
+            }
         }
 
         if (token1Address == wbnbAddress) {
@@ -156,6 +166,12 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
                 uniFactory.getPair(busdAddress, token1Address) != address(0)
             ) {
                 router1.push([earnedAddress, busdAddress, token1Address]);
+            }
+            if (
+                token1Address != usdtAddress &&
+                uniFactory.getPair(usdtAddress, token1Address) != address(0)
+            ) {
+                router1.push([earnedAddress, usdtAddress, token1Address]);
             }
         }
 
@@ -204,6 +220,19 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         return _getBestPath(amountIn, router1);
     }
 
+    function _approveTokenIfNeeded(
+        address _token,
+        address _spender,
+        uint256 _amount
+    ) private {
+        if (IERC20(_token).allowance(address(this), _spender) < _amount) {
+            IERC20(_token).safeIncreaseAllowance(
+                _spender,
+                type(uint256).max - _amount
+            );
+        }
+    }
+
     // Receives new deposits from user
     function deposit(
         address _userAddress,
@@ -215,14 +244,23 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
             _wantAmt
         );
 
+        _approveTokenIfNeeded(wantAddress, farmContractAddress, _wantAmt);
+        IPancakeswapFarmV2(farmContractAddress).deposit(pid, _wantAmt);
+
+        uint256 earnedAmt = IERC20(earnedAddress).balanceOf(address(this));
+        if (earnedAmt > MINIMUM_CAKE_AMOUNT) {
+            _earn(false, earnedAmt);
+        } else {
+            IMarsAutoFarm(marsAutoFarmAddress).updateLastEarnBlock(marsPid);
+            _helpToEarn();
+        }
+
         uint256 sharesAdded = _wantAmt;
         if (wantLockedTotal > 0 && sharesTotal > 0) {
             sharesAdded = _wantAmt.mul(sharesTotal).div(wantLockedTotal);
         }
         sharesTotal = sharesTotal.add(sharesAdded);
-
-        _farm();
-        _helpToEarn();
+        wantLockedTotal = wantLockedTotal.add(_wantAmt);
 
         return sharesAdded;
     }
@@ -240,7 +278,7 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
                 wantAmt
             );
 
-            IPancakeswapFarm(farmContractAddress).deposit(pid, wantAmt);
+            IPancakeswapFarmV2(farmContractAddress).deposit(pid, wantAmt);
         }
     }
 
@@ -251,7 +289,7 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
     ) external onlyOwner nonReentrant returns (uint256) {
         require(_wantAmt > 0, "_wantAmt <= 0");
 
-        IPancakeswapFarm(farmContractAddress).withdraw(pid, _wantAmt);
+        IPancakeswapFarmV2(farmContractAddress).withdraw(pid, _wantAmt);
 
         uint256 wantAmt = IERC20(wantAddress).balanceOf(address(this));
         if (_wantAmt > wantAmt) {
@@ -280,40 +318,38 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         return IMarsAutoFarm(marsAutoFarmAddress).poolLastEarnBlock(marsPid);
     }
 
-    function earn() external {
+    function earn() external returns (bool) {
         if (paused()) {
             IMarsAutoFarm(marsAutoFarmAddress).updateLastEarnBlock(marsPid);
+            return false;
         } else {
-            _earn(false);
+            return _earn(true, 0);
         }
     }
 
     function _helpToEarn() internal {
-        (address stratThatNeedsEarnings,uint256 lastBlock)=IMarsAutoFarm(marsAutoFarmAddress).getStratThatNeedsEarnings();
-        if (lastBlock < block.number) {
-            if (stratThatNeedsEarnings == address(this)) {
-                _earn(true);
-            } else {
+        if (autoCompound) {
+            address stratThatNeedsEarnings = IMarsAutoFarm(marsAutoFarmAddress)
+                .getStratThatNeedsEarnings();
+            if (stratThatNeedsEarnings != address(this)) {
                 IStrategy(stratThatNeedsEarnings).earn();
             }
         }
     }
 
-    function _earn(bool isUser) internal {
-        if (!isUser) {
-            IPancakeswapFarm(farmContractAddress).withdraw(pid, 0);
-        }
-
+    function _earn(bool harvest, uint256 earnedAmt) internal returns (bool) {
         IMarsAutoFarm(marsAutoFarmAddress).updateLastEarnBlock(marsPid);
 
-        uint256 earnedAmt = IERC20(earnedAddress).balanceOf(address(this));
+        if (harvest) {
+            IPancakeswapFarmV2(farmContractAddress).withdraw(pid, 0);
+            earnedAmt = IERC20(earnedAddress).balanceOf(address(this));
+            if (earnedAmt <= MINIMUM_CAKE_AMOUNT) {
+                return false;
+            }
+        }
 
         earnedAmt = distributeFees(earnedAmt);
         earnedAmt = buyBack(earnedAmt);
-
-        if (earnedAmt < 2) {
-            return;
-        }
 
         // Converts farm tokens into want tokens
 
@@ -321,20 +357,22 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
             uniRouterAddress,
             earnedAmt
         );
-
-        uint256 halfAmount = earnedAmt.div(2);
+        (uint256 reserveA, uint256 reserveB, ) = IPancakePair(wantAddress)
+            .getReserves();
+        uint256 halfAmount0 = earnedAmt.mul(reserveA).div(reserveA + reserveB);
+        uint256 halfAmount1 = earnedAmt - halfAmount0;
         address[] memory path;
         uint256 amountOut;
         if (earnedAddress != token0Address) {
             // Swap half earned to token0
-            (path, amountOut) = getPathForToken0(halfAmount);
-            _swap(halfAmount, amountOut, path);
+            (path, amountOut) = getPathForToken0(halfAmount0);
+            _swap(halfAmount0, amountOut, path);
         }
 
         if (earnedAddress != token1Address) {
             // Swap half earned to token1
-            (path, amountOut) = getPathForToken1(halfAmount);
-            _swap(halfAmount, amountOut, path);
+            (path, amountOut) = getPathForToken1(halfAmount1);
+            _swap(halfAmount1, amountOut, path);
         }
 
         // Get want tokens, ie. add liquidity
@@ -362,6 +400,7 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
         }
 
         _farm();
+        return true;
     }
 
     function buyBack(uint256 _earnedAmt) internal returns (uint256) {
@@ -390,8 +429,7 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
             address(this)
         );
 
-        //min amount 1e7
-        if (rewardAmount > 1e7 && sharesTotal > 0) {
+        if (rewardAmount > MINIMUM_MARS_AMOUNT && sharesTotal > 0) {
             uint256 burnAmount = rewardAmount.mul(burnRate).div(MaxBP);
             IERC20(marsTokenAddress).safeTransfer(burnAddress, burnAmount);
             rewardAmount = rewardAmount.sub(burnAmount);
@@ -447,6 +485,10 @@ contract Strat2X is Ownable, ReentrancyGuard, Pausable {
             // Swap all dust tokens to earned tokens
             _swap(token1Amt, 0, token1ToEarnedPath);
         }
+    }
+
+    function setAutocompound(bool _autoCompound) external onlyOwner {
+        autoCompound = _autoCompound;
     }
 
     function pause() external onlyOwner {

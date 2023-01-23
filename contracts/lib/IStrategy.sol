@@ -16,8 +16,14 @@ interface IStrategy {
     // Sum of all shares of users to wantLockedTotal
     function sharesTotal() external view returns (uint256);
 
+    function setAutocompound(bool _autoCompound) external;
+
     // Main want token compounding function
-    function earn() external;
+    function earn() external returns(bool);
+
+    function pause() external;
+
+    function unpause() external;
    
    //charged pool and burned rewardToken
     function distributeReward() external;
