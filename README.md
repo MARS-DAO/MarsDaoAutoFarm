@@ -1,5 +1,5 @@
 # MarsDAOAutoFarm
-v2.0.1
+v3.0.0 Jan 23, 2023
 
 MarsDAO autofarm.
 
@@ -94,4 +94,4 @@ Network: **Binance Smart Chain**.
 | 47  | CAKE         | Pancake  | StratX  | 0            | 0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82 | 0x23941d4bBfdFa1276AED8E3F34390F03df482a33 |
 | 48  | GMT-USDC     | Pancake  | StratX  | 514          | 0x007EC643C7Cc33a70C083fC305c283dd009C8b94 | 0x2FF2093fAFB08bf824768fffEa6cC9e484CdE112 |
 
-Powered by 2022 © TTM GROUP.
+Powered by 2023 © TTM GROUP.
